@@ -44,11 +44,13 @@ sound_on = True
 #   Game parameters (can change during game loop)
 game_active = False
 game_deck_initiated = False
-money_game = False
+new_hand = True
+next_player_card = False
 reveal_dealer = False
+show_game_menu = False
 show_restart_menu = False
-#   Buttons
-
+player_hand = []
+dealer_hand = []
 
 # Functions
 #   Draw visuals to screen
@@ -121,11 +123,13 @@ def draw_all_cards(player_cards, dealer_cards):
         draw_dealer_cards(dealer_cards, hidden_card=True)
 
 def draw_scores(player, dealer):
-    screen.blit(card_font.render(f'Player:{player}', True, 'white'), (500, 415))
+    player_score = calculate_score(player)
+    dealer_score = calculate_score(dealer)
+    screen.blit(card_font.render(f'Player:{player_score}', True, 'white'), (650, 365))
     if reveal_dealer:
-        screen.blit(card_font.render(f'Dealer:{dealer}', True, 'white'), (500, 30))
+        screen.blit(card_font.render(f'Dealer:{dealer_score}', True, 'white'), (650, 30))
     else:
-        screen.blit(card_font.render('Dealer: ???', True, 'white'), (500, 30))
+        screen.blit(card_font.render('Dealer:?', True, 'white'), (650, 30))
 
 def draw_and_create_button(text, position):
     button_rect = pygame.Rect(position, (300, 100))
@@ -155,24 +159,24 @@ def get_deck_amount():
 def generate_and_shuffle_game_deck():
     game_deck =  get_deck_amount() * single_deck
     random.shuffle(game_deck)
-    print(game_deck)
-
+    return game_deck
 
 #   Deal cards
-def deal_cards(cards, deck):
+def deal_cards(hand, deck):
     top_card = deck.pop()
-    return cards.append(top_card), deck
+    hand.append(top_card)
+    return hand, deck
 
 #   Calculate scores
 def calculate_score(hand):
     hand_score = 0
-    hand_values = [value for _, value in hand]
+    hand_values = [value for (_, value) in hand]
     aces_count = hand_values.count('A')
     for i in range(len(hand_values)):
         # for 2 -> 9 - just add number to total
         for j in range(8):
             if hand_values[i] == card_values[j]:
-                hand_score += int(hand[i])
+                hand_score += int(hand_values[i])
         # for 10 and face cards, add 10
         if hand_values[i] in ['10', 'J', 'Q', 'K']:
             hand_score += 10 
@@ -221,12 +225,21 @@ while run_game:
     if show_starting_menu:
         buttons = draw_starting_menu()
 
+    # Initiate game deck before start of game
     if game_active and not game_deck_initiated:
-        generate_and_shuffle_game_deck()
+        game_deck = generate_and_shuffle_game_deck()
         game_deck_initiated = True
 
-    if game_active and game_deck_initiated:
-        pass
+    # Game is started
+    if game_active and game_deck_initiated and new_hand:
+        for i in range(2):
+            player_hand, game_deck = deal_cards(player_hand, game_deck)
+            dealer_hand, game_deck = deal_cards(dealer_hand, game_deck)
+        new_hand = False
+
+    if player_hand and dealer_hand:
+        draw_all_cards(player_hand, dealer_hand)
+        draw_scores(player_hand, dealer_hand)
 
     if show_restart_menu:
         pass
@@ -241,8 +254,9 @@ while run_game:
                     sound_on = not sound_on
                 if buttons[1].collidepoint(event.pos):
                     deck_amount_i += 1
-
+                if buttons[2].collidepoint(event.pos):
+                    show_starting_menu = False
+                    game_active = True
     
     pygame.display.flip()
-
 pygame.quit()
