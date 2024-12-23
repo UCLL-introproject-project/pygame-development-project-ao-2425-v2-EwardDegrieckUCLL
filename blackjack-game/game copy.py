@@ -1,4 +1,3 @@
-import copy
 import random
 import pygame
 
@@ -37,21 +36,22 @@ single_deck = [
     for symbol in card_symbols 
     for value in card_values]
 possible_deck_amounts = [4,10,16]
-#   Starting menu parameters
-show_starting_menu = True
+#   Booleans (can change during game loop)
+game_active = False
 deck_amount_i = 0
 sound_on = True
-#   Game parameters (can change during game loop)
-game_active = False
 game_deck_initiated = False
 new_hand = False
+game_loop = False
 show_restart_menu = False
-next_player_card = False
-next_dealer_card = False
-reveal_dealer = False
+show_starting_menu = True
 show_game_menu = False
-add_score = False
-
+show_result_menu = True
+hand_active = False
+reveal_dealer = False
+next_player_card = False
+player_stands = False
+#   Game parameters (can change during game loop)
 player_hand = []
 dealer_hand = []
 totals = [0,0,0]
@@ -83,6 +83,10 @@ def draw_game_menu():
     button_list.append(draw_and_create_button('NEXT CARD', (1000, 150)))
     button_list.append(draw_and_create_button('STAND', (1000, 650)))
     return button_list
+
+def draw_result_menu(outcome):
+    print('outcome reached!')
+    pass
 
 #   Draw cards to screen
 def draw_card_back(position):
@@ -118,9 +122,6 @@ def draw_card_face(card_tuple, position):
         x_val_flip = x + 185
     screen.blit(flipped_value, (x_val_flip,y+250))
 
-
-    # use .flip om ook omgekeerd kaartsymbooltje onderaan te noteren!
-
 def draw_dealer_cards(dealer_cards, hidden_card=False):
     base_x, base_y = (50, 30)
     for i in range(len(dealer_cards)):
@@ -136,7 +137,7 @@ def draw_player_cards(player_cards):
         next_pos = (base_x + (i*115), base_y + (i*15))
         draw_card_face(player_cards[i], next_pos)
 
-def draw_all_cards(player_cards, dealer_cards):
+def draw_all_cards(player_cards, dealer_cards, reveal_dealer=False):
     draw_player_cards(player_cards)
     if reveal_dealer:
         draw_dealer_cards(dealer_cards)
@@ -144,14 +145,16 @@ def draw_all_cards(player_cards, dealer_cards):
         draw_dealer_cards(dealer_cards, hidden_card=True)
 
 #   Draw scores and buttons
-def draw_scores(player, dealer):
+def draw_scores(player, dealer, reveal_dealer=False):
     player_score = calculate_score(player)
     dealer_score = calculate_score(dealer)
-    screen.blit(card_font.render(f'Player:{player_score}', True, 'white'), (650, 365))
+    player_text = card_font.render(f'Player:{player_score}', True, black_color)
+    screen.blit(player_text, (720, 365))
     if reveal_dealer:
-        screen.blit(card_font.render(f'Dealer:{dealer_score}', True, 'white'), (650, 30))
+        dealer_text = card_font.render(f'Dealer:{dealer_score}', True, black_color)
     else:
-        screen.blit(card_font.render('Dealer:?', True, 'white'), (650, 30))
+        dealer_text = card_font.render('Dealer:?', True, black_color)
+    screen.blit(dealer_text, (720, 30))
 
 def draw_and_create_button(text, position):
     button_rect = pygame.Rect(position, (300, 100))
@@ -164,7 +167,7 @@ def draw_and_create_button(text, position):
     return button
 
 def draw_totals(list):
-    text = text_font.render(f'Player wins: {list[0]} - Dealer wins: {list[1]} - Tie: {list[2]}', True, white_color)
+    text = text_font.render(f'Player wins: {list[0]} - Dealer wins: {list[1]} - Tie: {list[2]}', True, black_color)
     screen.blit(text, (300, 850))
 
 #   Initiate game deck
@@ -206,15 +209,10 @@ def calculate_score(hand):
     return hand_score
 
 #   Endgame scenarios
-def game_won(totals):
-    totals[0] += 1
-    return totals
-def game_lost(totals):
-    totals[1] += 1
-    return totals
-def game_tie(totals):
-    totals[2] += 1
-    return totals
+def calculate_outcome(player, dealer):
+    player_score = calculate_score(player)
+    dealer_score = calculate_score(dealer)
+    return False, 0
 
 run_game = True
 while run_game:
@@ -223,63 +221,53 @@ while run_game:
     draw_table()
     draw_deck()
 
-    # if hands are not empty
-    if player_hand and dealer_hand:
-        draw_all_cards(player_hand, dealer_hand)
-        draw_scores(player_hand, dealer_hand)
-
-    # Draw scores if game started
-    if game_active:
-        draw_totals(totals)
-
-    # Draw menus
-    if show_starting_menu:
+    if not game_active and not game_deck_initiated:
         buttons = draw_starting_menu()
-    if show_restart_menu:
-        buttons = draw_restart_menu()
-        dealer_hand = []
-        player_hand = []
-    if show_game_menu:
-        buttons = draw_game_menu()
-        player_score = calculate_score(player_hand)
-        if player_score >= 21:
-            reveal_dealer = True
-            while calculate_score(dealer_hand) < 17:
-                dealer_hand_hand, game_deck = deal_card(dealer_hand, game_deck)
-            dealer_score = calculate_score(dealer_hand)
-            if player_score > 21:
-                if dealer_score > 21:
-                    totals = game_tie(totals)
-                else:
-                    totals = game_lost(totals)
-            elif player_score == 21:
-                while calculate_score(dealer_hand) < 21:
-                    deal_card(dealer_hand, game_deck)
-                dealer_score = calculate_score
-                if calculate_score(dealer_hand) == 21:
-                    totals = game_tie(totals)
-                else:
-                    totals = game_won(totals)
-            show_game_menu = False
+        show_starting_menu = True
 
-    
-    # Initiate game deck before start of game
     if game_active and not game_deck_initiated:
         game_deck = generate_and_shuffle_game_deck()
         game_deck_initiated = True
+        game_loop = True
+        new_hand = False
+        show_restart_menu = True
+    
+    if game_loop:
+        draw_totals(totals)
 
-    # New hand is started
-    if game_deck_initiated and new_hand:
+    if game_loop and not new_hand:
+        buttons = draw_restart_menu()
+    
+    if game_loop and new_hand:
         for i in range(2):
             player_hand, game_deck = deal_card(player_hand, game_deck)
             dealer_hand, game_deck = deal_card(dealer_hand, game_deck)
-        new_hand = False
         show_game_menu = True
-
-    # New player card
+        new_hand = False
+        hand_active = True
+        buttons = draw_game_menu()
+    
+    if hand_active:
+        draw_all_cards(player_hand, dealer_hand, reveal_dealer)
+        draw_scores(player_hand, dealer_hand, reveal_dealer)
+        buttons = draw_game_menu()
+        
     if next_player_card:
         player_hand, game_deck = deal_card(player_hand, game_deck)
         next_player_card = False
+        if calculate_score(player_hand) >= 21:
+            player_stands = True
+
+    if player_stands:
+        reveal_dealer = True
+        show_game_menu = False
+        while calculate_score(dealer_hand) < 17:
+            dealer_hand_hand, game_deck = deal_card(dealer_hand, game_deck) 
+    
+    game_ended, outcome = calculate_outcome(player_hand, dealer_hand)
+    if game_ended:
+        show_result_menu = True
+        buttons = draw_result_menu(outcome)
 
     # Event handling
     for event in pygame.event.get():
@@ -294,7 +282,6 @@ while run_game:
                 if buttons[2].collidepoint(event.pos):
                     show_starting_menu = False
                     game_active = True
-                    show_restart_menu = True
 
             if show_restart_menu:
                 if buttons[0].collidepoint(event.pos):
@@ -305,9 +292,10 @@ while run_game:
                 if buttons[0].collidepoint(event.pos):
                     next_player_card = True
                 elif buttons[1].collidepoint(event.pos):
-                    show_game_menu = False
+                    player_stands = True
+            
+            if show_result_menu:
+                pass
         
-    
-    
     pygame.display.flip()
 pygame.quit()
