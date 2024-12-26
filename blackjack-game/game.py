@@ -36,9 +36,11 @@ single_deck = [
     for symbol in card_symbols 
     for value in card_values]
 possible_deck_amounts = [4,10,16]
+bet_options = [25,50,75,100,200,500]
 #   Booleans (can change during game loop)
 game_active = False
 deck_amount_i = 0
+bet_i = 0
 sound_on = True
 start_new_hand = False
 game_loop = False
@@ -57,6 +59,7 @@ player_hand = []
 dealer_hand = []
 totals = [0,0,0]
 outcome = 0
+money = 1000
 
 # Functions
 #   Draw game table and menus
@@ -70,19 +73,24 @@ def draw_starting_menu():
     button_list = []
     base_position = (base_x, base_y) = 75, screen_height - 110
     if sound_on:
-        button_list.append(draw_and_create_button('SOUND ON', base_position))
+        button_list.append(draw_and_create_button('SOUND ON', base_position, inverse_color=True))
     else:
-        button_list.append(draw_and_create_button('SOUND OFF', base_position))
-    button_list.append(draw_and_create_button(f'DECKS: {get_deck_amount()}', ((base_x + 300), base_y)))
+        button_list.append(draw_and_create_button('SOUND OFF', base_position, inverse_color=True))
+    button_list.append(draw_and_create_button(f'DECKS: {get_deck_amount()}', ((base_x + 300), base_y), True))
     button_list.append(draw_and_create_button('START', ((base_x + 600), base_y)))
     return button_list
 
 def draw_restart_menu(result):
     button_list = []
     button_list.append(draw_and_create_button('DEAL HAND', (screen_width-350, 100)))
+    button_list.append(draw_and_create_button(f'BET: ${get_current_bet()}', (screen_width-400, 400), inverse_color=True))
+    button_list.append(draw_and_create_button('v', (screen_width-150, 400), mini=True, flipped=True, inverse_color=True))
+    button_list.append(draw_and_create_button('v', (screen_width-150, 438), mini=True, inverse_color=True))
     # 1 => win, 2 => loss, 3 => tie, 4 => player bust
     if result == 0:
         string = 'Press DEAL HAND to start the game!'
+        bet_text = card_font.render('Change bet before dealing hand.', True, white_color)
+        screen.blit(bet_text, (15,350))
     elif result == 1:
         string = 'Player wins! :-)'
     elif result == 2:
@@ -91,10 +99,10 @@ def draw_restart_menu(result):
         string = 'Tie!'
     elif result == 4:
         string = 'Player busted!'
-    text = text_font.render(string, True, white_color)
-    text_rect = text.get_rect()
+    outcome_text = text_font.render(string, True, white_color)
+    text_rect = outcome_text.get_rect()
     text_rect.midright = (screen_width-250, 50)
-    screen.blit(text, text_rect)
+    screen.blit(outcome_text, text_rect)
     return button_list
 
 def draw_game_menu():
@@ -171,23 +179,40 @@ def draw_scores(player, dealer, reveal_dealer=False):
         dealer_text = card_font.render('Dealer: ?', True, black_color)
     screen.blit(dealer_text, (35, 230))
 
-def draw_and_create_button(text, position):
-    button_rect = pygame.Rect(position, (250, 75))
-    button = pygame.draw.rect(screen, white_color, button_rect, 0, 10)
-    pygame.draw.rect(screen, black_color, button_rect, 3, 10)
-    button_text = text_font.render(text, True, black_color)
+def draw_and_create_button(text, position, inverse_color=False, mini=False, flipped=False):
+    if inverse_color:
+        primary_color = black_color
+        secondary_color = white_color
+    else:
+        primary_color = white_color
+        secondary_color = black_color
+    if mini:
+        size = (100, 38)
+    else:
+        size = (250, 75)
+    button_rect = pygame.Rect(position, size)
+    button = pygame.draw.rect(screen, primary_color, button_rect, 0, 10)
+    pygame.draw.rect(screen, secondary_color, button_rect, 3, 10)
+    button_text = text_font.render(text, True, secondary_color)
+    if flipped:
+        text_copy = button_text.copy()
+        flipped_text = pygame.transform.flip(text_copy, True, True)
+        button_text = flipped_text
     text_rect = button_text.get_rect()
     text_rect.center = button_rect.center
     screen.blit(button_text, text_rect.topleft)
     return button
 
+
 def draw_totals(list):
-    text = card_font.render(f'Win: {list[0]} - Loss: {list[1]} - Tie: {list[2]}', True, black_color)
-    screen.blit(text, (415, screen_height-60))
+    totals_text = card_font.render(f'Win: {list[0]} - Loss: {list[1]} - Tie: {list[2]}', True, black_color)
+    money_text = card_font.render(f'Money: ${money}', True, black_color)
+    screen.blit(totals_text, (415, screen_height-60))
+    screen.blit(money_text, (screen_width-300, screen_height-115))
 
 #   Initiate game deck
 def get_deck_amount():
-    return possible_deck_amounts[deck_amount_i % 3]
+    return possible_deck_amounts[deck_amount_i % len(possible_deck_amounts)]
 
 def generate_and_shuffle_game_deck():
     game_deck =  get_deck_amount() * single_deck
@@ -225,6 +250,22 @@ def calculate_score(hand):
 
     return hand_score
 
+#   Betting
+def get_current_bet():
+    return bet_options[bet_i % len(bet_options)]
+
+def next_bet_option():
+    return bet_options[(bet_i+1) % len(bet_options)]
+
+def previous_bet_option():
+    return bet_options[(bet_i-1) % len(bet_options)]
+
+def smallest_bet():
+    return bet_options[0]
+
+def biggest_bet():
+    return bet_options[-1]
+
 #   Endgame scenarios
 def calculate_outcome(player, dealer):
     player_score = calculate_score(player)
@@ -246,6 +287,14 @@ def adjust_totals(result):
         else:
             totals[result-1] += 1
 
+def adjust_money(amount, result):
+    bet = get_current_bet()
+    if result == 1:
+        amount += (2*bet)
+    elif result == 3:
+        amount += bet
+    return amount
+
 run_game = True
 while run_game:
     # Draw new frame
@@ -258,14 +307,18 @@ while run_game:
         show_starting_menu = True
     
     if game_active:
-        draw_all_cards(player_hand, dealer_hand, reveal_dealer)
-        draw_scores(player_hand, dealer_hand, reveal_dealer)
-        draw_totals(totals)
+        if money == 0 and not hand_active:
+            show_game_menu = False
+            show_result_menu = False
+            ###
+
+
         if hand_active:
             reveal_dealer = False
             if start_new_hand:
                 dealer_hand = []
                 player_hand = []
+                money -= get_current_bet()
                 for i in range(2):
                     player_hand, game_deck = deal_card(player_hand, game_deck)
                     dealer_hand, game_deck = deal_card(dealer_hand, game_deck)
@@ -295,7 +348,12 @@ while run_game:
             outcome = calculate_outcome(player_hand, dealer_hand)
             buttons = draw_restart_menu(outcome)
             adjust_totals(outcome) 
+            money = adjust_money(money, outcome)
             player_stands = False
+        
+        draw_all_cards(player_hand, dealer_hand, reveal_dealer)
+        draw_scores(player_hand, dealer_hand, reveal_dealer)
+        draw_totals(totals)
 
     # Event handling
     for event in pygame.event.get():
@@ -315,6 +373,12 @@ while run_game:
                 if buttons[0].collidepoint(event.pos):
                     hand_active = True
                     start_new_hand = True
+                elif buttons[2].collidepoint(event.pos):
+                    if not (get_current_bet() == biggest_bet()) and next_bet_option() <= money:
+                        bet_i += 1
+                elif buttons[3].collidepoint(event.pos): 
+                    if not (get_current_bet() == smallest_bet()):
+                        bet_i -= 1      
             
             if show_game_menu:
                 if buttons[0].collidepoint(event.pos):
@@ -328,3 +392,5 @@ while run_game:
         
     pygame.display.flip()
 pygame.quit()
+
+# TO DO: zorgen dat je niet negatief kan gaan met geld, spel stoppen als je blut bent, meer opties om geld in te zetten?
