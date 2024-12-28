@@ -67,7 +67,8 @@ def reset_game():
     dealer_hand = []
     money = 1000
     outcome = 0
-    return (game_deck, player_hand, dealer_hand, money, outcome)
+    last_bet = 0
+    return (game_deck, player_hand, dealer_hand, money, outcome, last_bet)
 
 def reset_statistics():
     totals = [0,0,0]
@@ -78,11 +79,11 @@ def reset_statistics():
     max_money = 0
     return (totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money)
 
-game_deck, player_hand, dealer_hand, money, outcome = reset_game()
+game_deck, player_hand, dealer_hand, money, outcome, last_bet = reset_game()
 totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money = reset_statistics()
 
 def get_start_money():
-    _, _, _, start_money, _ = reset_game()
+    _, _, _, start_money, _, _ = reset_game()
     return start_money
 
 # Functions
@@ -104,7 +105,7 @@ def draw_starting_menu():
     button_list.append(draw_and_create_button('START', ((base_x + 600), base_y)))
     return button_list
 
-def draw_restart_menu(result):
+def draw_restart_menu(result, bet=None):
     button_list = []
     button_list.append(draw_and_create_button('NEW HAND', (screen_width-400, 100)))
     button_list.append(draw_and_create_button(f'BET: ${get_current_bet()}', (screen_width-400, 400), inverse_color=True))
@@ -116,16 +117,16 @@ def draw_restart_menu(result):
         bet_text = card_font.render('Change bet before dealing hand. (minimum $25)', True, black_color)
         screen.blit(bet_text, (5,350))
     elif result == 1:
-        string = f'+${get_current_bet()*2}  Player wins! :-)'
+        string = f'+${bet} Player wins!'
     elif result == 2:
-        string = f'-${get_current_bet()} Dealer wins... :-('
+        string = f'-${bet} Dealer wins...'
     elif result == 3:
-        string = '+$0 Tie!'
+        string = '+$0 Tie.'
     elif result == 4:
-        string = f'-${get_current_bet()} Player busted!'
+        string = f'-${bet} Player busted!'
     outcome_text = text_font.render(string, True, white_color)
     text_rect = outcome_text.get_rect()
-    text_rect.midright = (screen_width-250, 50)
+    text_rect.midright = (screen_width-200, 50)
     screen.blit(outcome_text, text_rect)
     button_list += draw_sound(sound_on)
     if result != 0:  
@@ -171,9 +172,9 @@ def draw_statistics():
         f'Amount of rounds played: {num_rounds}',
         f'Cards drawn by player: {cards_drawn_player}',
         f'Cards drawn by dealer: {cards_drawn_dealer}',
-        f'Maximum amount of money held: {max_money}',
+        f'Maximum amount of money held ($): {max_money}',
         f'Player blackjacks: {num_blackjacks}',
-        f'Money won: {money-get_start_money()}',
+        f'Gain ($): {money-get_start_money()}',
         f'Win: {totals[0]} - Loss: {totals[1]} - Tie: {totals[2]}']
     for i in range(len(strings)):
         text = card_font.render(strings[i], True, white_color)
@@ -334,13 +335,13 @@ def calculate_score(hand):
 
 #   Betting
 def get_current_bet():
-    return bet_options[bet_i % len(bet_options)]
+    return bet_options[bet_i]
 
 def next_bet_option():
-    return bet_options[(bet_i+1) % len(bet_options)]
+    return bet_options[(bet_i+1)]
 
 def previous_bet_option():
-    return bet_options[(bet_i-1) % len(bet_options)]
+    return bet_options[(bet_i-1)]
 
 def get_smallest_bet():
     return bet_options[0]
@@ -371,13 +372,13 @@ def adjust_totals(result):
         elif result == 3:
             totals[2] += 1
 
-def adjust_money(amount, result):
+def adjust_money(current_money, result):
     bet = get_current_bet()
     if result == 1:
-        amount += (2*bet)
+        current_money += (2*bet)
     elif result == 3:
-        amount += bet
-    return amount
+        current_money += bet
+    return current_money
 
 run_game = True
 while run_game:
@@ -398,6 +399,7 @@ while run_game:
                 dealer_hand = []
                 player_hand = []
                 money -= get_current_bet()
+                last_bet = get_current_bet()
                 for i in range(2):
                     player_hand, game_deck = deal_card(player_hand, game_deck)
                     cards_drawn_player += 1
@@ -434,7 +436,7 @@ while run_game:
             player_stands = False
 
         if not hand_active and not player_stands:
-            buttons = draw_restart_menu(outcome)
+            buttons = draw_restart_menu(outcome, bet=last_bet)
             show_restart_menu = True
 
         draw_all_cards(player_hand, dealer_hand, reveal_dealer)
@@ -504,7 +506,7 @@ while run_game:
                     show_statistics = False
                     show_starting_menu = True
                     # reset game and statistics
-                    game_deck, player_hand, dealer_hand, money, outcome = reset_game()
+                    game_deck, player_hand, dealer_hand, money, outcome, last_bet = reset_game()
                     totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money = reset_statistics()
         
     pygame.display.flip()
