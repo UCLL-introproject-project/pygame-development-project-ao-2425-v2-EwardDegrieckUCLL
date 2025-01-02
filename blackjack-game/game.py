@@ -2,7 +2,6 @@ import random
 import pygame
 
 pygame.init()
-
 # Variables
 #   Game screen
 screen_size = (screen_width, screen_height) = (1000, 600)
@@ -10,15 +9,15 @@ screen = pygame.display.set_mode(screen_size)
 pygame.display.set_caption("Introductieproject - Blackjack by Eward Degrieck")
 fps = 60
 timer = pygame.time.Clock()
-bg_logo = pygame.image.load("./blackjack-game/img/table_logo.png")
+bg_logo = pygame.image.load("blackjack-game/img/table_logo.png")
 bg_logo.set_alpha(180)
 #   Fonts
-card_font = pygame.font.Font('./blackjack-game/fonts/FragmentMono-Regular.ttf', 36)
-text_font = pygame.font.Font('./blackjack-game/fonts/Roboto-Regular.ttf', 42)
-big_text_font = pygame.font.Font('./blackjack-game/fonts/Roboto-Regular.ttf', 50)
+card_font = pygame.font.Font('blackjack-game/fonts/FragmentMono-Regular.ttf', 36)
+text_font = pygame.font.Font('blackjack-game/fonts/Roboto-Regular.ttf', 42)
+big_text_font = pygame.font.Font('blackjack-game/fonts/Roboto-Regular.ttf', 50)
 #   Colours
 bg_color = (60, 125, 60)
-red_color = (204, 35, 40)
+red_color = (205, 35, 40)
 black_color = (0, 0, 0)
 white_color = (255, 255, 255)
 #   Card images
@@ -37,9 +36,8 @@ deal_card_sfx = pygame.mixer.Sound('./blackjack-game/sound/deal_card.mp3')
 reveal_dealer_sfx = pygame.mixer.Sound('./blackjack-game/sound/reveal_dealer.mp3')
 cash_out_sfx = pygame.mixer.Sound('./blackjack-game/sound/cash_out.mp3')
 win_sfx = pygame.mixer.Sound('./blackjack-game/sound/win.mp3')
-busted_sfx = pygame.mixer.Sound('./blackjack-game/sound/busted.mp3')
-tie_sfx = pygame.mixer.Sound('./blackjack-game/sound/tie.mp3')
 lose_sfx = pygame.mixer.Sound('./blackjack-game/sound/lose.mp3')
+tie_sfx = pygame.mixer.Sound('./blackjack-game/sound/tie.mp3')
 #   Deck values
 card_values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 card_symbols = ['heart', 'diamond', 'club', 'spade']
@@ -52,8 +50,6 @@ possible_deck_amounts = [4,10,16]
 bet_options = [25,50,75,100,200,500]
 #   Booleans (can change during game loop)
 game_active = False
-deck_amount_i = 0
-bet_i = 0
 sound_on = True
 start_new_hand = False
 show_starting_menu = True
@@ -66,9 +62,13 @@ reveal_dealer = False
 next_player_card = False
 player_stands = False
 player_stopped = False
-totals_need_update = False
 see_statistics = False
 #   Game parameters and statistics
+def reset_indices():
+    deck_amount_i = 0
+    bet_i = 0
+    return (deck_amount_i, bet_i)
+
 def reset_game():
     game_deck = []
     player_hand = []
@@ -87,12 +87,14 @@ def reset_statistics():
     max_money = 0
     return (totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money)
 
-game_deck, player_hand, dealer_hand, money, outcome, last_bet = reset_game()
-totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money = reset_statistics()
-
 def get_start_money():
     _, _, _, start_money, _, _ = reset_game()
     return start_money
+
+# Initialize and reset game parameters and statistics
+deck_amount_i, bet_i = reset_indices()
+game_deck, player_hand, dealer_hand, money, outcome, last_bet = reset_game()
+totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money = reset_statistics()
 
 # Functions
 #   Draw game table and menus
@@ -134,7 +136,7 @@ def draw_restart_menu(result, bet=None):
         string = f'-${bet} Player busted!'
     outcome_text = text_font.render(string, True, white_color)
     text_rect = outcome_text.get_rect()
-    text_rect.midright = (screen_width-200, 50)
+    text_rect.midright = (screen_width-200, 30)
     screen.blit(outcome_text, text_rect)
     button_list += draw_sound(sound_on)
     if result != 0:  
@@ -177,7 +179,7 @@ def draw_statistics():
     button_list.append(draw_and_create_button('MAIN MENU', (screen_width-300, screen_height-125), inverse_color=True))
     base_x, base_y = (30, 30)
     strings = [
-        f'STATISTICS:',
+        f'STATISTICS',
         f'Amount of rounds played: {num_rounds}',
         f'Cards drawn by player: {cards_drawn_player}',
         f'Cards drawn by dealer: {cards_drawn_dealer}',
@@ -373,7 +375,7 @@ def calculate_outcome(player, dealer):
     if player_score > 21:
         result = 4
         if sound_on:
-            busted_sfx.play()
+            lose_sfx.play()
     elif dealer_score < player_score <= 21 or dealer_score > 21:
         result = 1
         if sound_on:
@@ -555,6 +557,7 @@ while run_game:
                     # reset game and statistics
                     game_deck, player_hand, dealer_hand, money, outcome, last_bet = reset_game()
                     totals, num_rounds, num_blackjacks, cards_drawn_player, cards_drawn_dealer, max_money = reset_statistics()
-        
+                    deck_amount_i, bet_i = reset_indices()    
+
     pygame.display.flip()
 pygame.quit()
